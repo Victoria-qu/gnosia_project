@@ -2,102 +2,657 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>GNOSIA 網頁實驗版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNOSIA: Cyber Loop</title>
     <style>
-        body { background: #1a1a2e; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
-        #game-container { width: 400px; border: 2px solid #4e4e6a; padding: 20px; margin-top: 50px; background: #16213e; border-radius: 10px; }
-        #log { height: 200px; overflow-y: auto; border: 1px solid #0f3460; padding: 10px; margin-bottom: 20px; background: #0f3460; font-size: 14px; line-height: 1.5; }
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
-        button { padding: 8px 15px; cursor: pointer; background: #e94560; border: none; color: white; border-radius: 5px; }
-        button:disabled { background: #555; }
-        .system-msg { color: #f9ed69; }
-        .ai-msg { color: #00d2d3; }
+        /* --- CSS: Cyberpunk Universe Style --- */
+        :root {
+            --bg-color: #050510;
+            --g-deep: #1a0b35;
+            --g-mid: #2d1656;
+            --g-light: #4c268f;
+            --cyan: #0ff;
+            --magenta: #f0f;
+            --neon-green: #0f0;
+            --neon-red: #f00;
+            --text-color: #e0e0f0;
+            --panel-bg: rgba(20, 20, 50, 0.8);
+            --border: 1px solid #4c268f;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 3px),
+                radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 2px),
+                linear-gradient(to bottom, var(--g-deep) 0%, var(--bg-color) 100%);
+            background-size: 550px 550px, 350px 350px, 100% 100%;
+            background-position: 0 0, 40px 60px, 0 0;
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace; /* Cyber, code style */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-wrapper {
+            width: 90%;
+            max-width: 1000px;
+            height: 85vh;
+            background: var(--panel-bg);
+            border: 2px solid var(--magenta);
+            box-shadow: 0 0 20px rgba(240, 0, 240, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.2);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(5px);
+            overflow: hidden;
+        }
+
+        /* Top Header */
+        #header {
+            padding: 10px 20px;
+            border-bottom: var(--border);
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--cyan);
+            text-shadow: 0 0 5px var(--cyan);
+        }
+
+        /* Character Display Area */
+        #stage {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            background: rgba(10, 10, 30, 0.5);
+            border-bottom: var(--border);
+        }
+
+        .char-card {
+            width: 120px;
+            height: 160px;
+            border: 1px solid var(--g-light);
+            background: linear-gradient(135deg, var(--g-deep) 0%, #000 100%);
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .char-card.alive { border-color: var(--cyan); box-shadow: 0 0 10px rgba(0, 255, 255, 0.3); }
+        .char-card.frozen { filter: grayscale(100%); opacity: 0.5; border-color: #555; }
+        .char-card.attacked { border-color: var(--neon-red); animation: glitch 0.3s infinite; }
+        .char-card.speaking { border-color: var(--magenta); transform: scale(1.05); box-shadow: 0 0 15px rgba(240, 0, 240, 0.7); }
+
+        @keyframes glitch {
+            0% { transform: translate(2px, 1px); }
+            50% { transform: translate(-2px, -1px); }
+            100% { transform: translate(1px, -2px); }
+        }
+
+        .char-name { font-weight: bold; font-size: 1.1em; color: white; margin-bottom: 5px; text-shadow: 0 0 3px black; }
+        .char-role-marker { font-size: 0.8em; color: var(--neon-green); visibility: hidden; }
+        .visible { visibility: visible; }
+
+        /* Dialogue & Log Area */
+        #log-container {
+            height: 150px;
+            overflow-y: auto;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border-bottom: var(--border);
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        #log-container p { margin: 0 0 8px 0; }
+        .sys { color: var(--cyan); }
+        .player-msg { color: white; }
+        .ai-msg { color: #b0a0f0; }
+        .event { color: var(--neon-green); font-weight: bold; }
+        .danger { color: var(--neon-red); animation: pulse 1s infinite; }
+
+        @keyframes pulse { 50% { opacity: 0.5; } }
+
+        /* Action Controls Area */
+        #controls {
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--magenta);
+            color: var(--magenta);
+            padding: 8px 18px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--magenta);
+            color: white;
+            box-shadow: 0 0 10px var(--magenta);
+        }
+
+        button:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+
+        .vote-btn { border-color: var(--neon-red); color: var(--neon-red); }
+        .vote-btn:hover:not(:disabled) { background: var(--neon-red); color: white; box-shadow: 0 0 10px var(--neon-red); }
+
+        /* Modal (for role reveal) */
+        #modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center;
+            z-index: 100; visibility: hidden; opacity: 0; transition: 0.5s;
+        }
+        #modal.active { visibility: visible; opacity: 1; }
+        #modal-content {
+            background: var(--g-deep); border: 2px solid var(--cyan); padding: 40px;
+            text-align: center; border-radius: 10px; box-shadow: 0 0 30px var(--cyan);
+        }
     </style>
 </head>
 <body>
 
-    <h2>GNOSIA: 簡易模擬器</h2>
-    
-    <div id="game-container">
-        <div id="status">第 1 天 - 剩餘人數: 3</div>
-        <div id="log"></div>
-        
-        <div id="actions" class="btn-group">
-            <p>你的行動：</p>
-            <button onclick="playTurn('懷疑', '沙明')">懷疑 沙明</button>
-            <button onclick="playTurn('懷疑', '蕾切爾')">懷疑 蕾切爾</button>
-            <button onclick="playTurn('閒聊', '')">隨便閒聊</button>
+    <div id="game-wrapper">
+        <div id="header">
+            <span id="day-indicator">DAY 0</span>
+            <span id="phase-indicator">LOADING...</span>
+            <span id="alive-count">Alive: 5</span>
         </div>
-        
-        <div id="next-step" style="display:none; margin-top:20px;">
-            <button onclick="startVote()">前往投票</button>
+
+        <div id="stage">
+            </div>
+
+        <div id="log-container">
+            <div id="log"></div>
+        </div>
+
+        <div id="controls">
+            </div>
+    </div>
+
+    <div id="modal">
+        <div id="modal-content">
+            <h1 id="modal-title" class="danger">ROLE ASSIGNED</h1>
+            <p id="modal-body">You are...</p>
+            <button onclick="closeModal()">ACKNOWLEDGE</button>
         </div>
     </div>
 
     <script>
-        // 1. 初始化資料
-        let players = [
-            { name: "你", role: "人類", alive: true, sus: 0 },
-            { name: "沙明", role: "古諾希亞", alive: true, sus: 0 },
-            { name: "蕾切爾", role: "人類", alive: true, sus: 0 }
+        /* --- JS: Game Logic --- */
+
+        const roles = { HUMAN: "人類", GNOSIA: "古諾希亞", ENGINEER: "工程師" };
+        const phases = { START: "初始化", DISCUSSION: "討論階段", VOTE: "投票階段", NIGHT: "夜晚階段", END: "結束" };
+
+        let gameState = {
+            day: 0,
+            phase: phases.START,
+            players: [],
+            playerIndex: 0,
+            gnosiaKilledToday: null,
+            engineerScanTarget: null,
+            discussionTurns: 0,
+            maxDiscussionTurns: 3,
+            voteMap: {}, // targetName: count
+        };
+
+        // --- Character性格和AI基礎數據 ---
+        const charData = [
+            { id: 0, name: "你(Player)", aiType: "player", logic: 50, stealth: 50, charm: 50 },
+            { id: 1, name: "沙明", aiType: "aggressive", logic: 60, stealth: 80, charm: 30 }, // 演技好，愛攻擊
+            { id: 2, name: "蕾切爾", aiType: "logical", logic: 90, stealth: 40, charm: 60 }, // 邏輯強，容易識破謊言
+            { id: 3, name: "希皮", aiType: "cooperative", logic: 40, stealth: 50, charm: 70 }, // 魅力高，跟風
+            { id: 4, name: "吉娜", aiType: "timid", logic: 30, stealth: 60, charm: 40 }    // 演技尚可，怕被懷疑
         ];
-        let turnCount = 0;
 
-        const logDiv = document.getElementById('log');
+        // --- 初始化遊戲 ---
+        function initGame() {
+            addLog(">> 系統啟動...", "sys");
+            addLog(">> 正在建立協調循環...", "sys");
 
-        function addLog(msg, type) {
-            const p = document.createElement('p');
-            if(type) p.className = type;
-            p.innerText = msg;
-            logDiv.appendChild(p);
-            logDiv.scrollTop = logDiv.scrollHeight;
+            // 1. 生成玩家實例
+            gameState.players = charData.map(data => ({
+                ...data,
+                role: roles.HUMAN,
+                alive: true,
+                frozen: false,
+                suspicion: 0, // AI 內部的懷疑度矩陣 (簡化版)
+                knownRole: null, // 對玩家顯示的身份
+            }));
+
+            // 2. 隨機分配身份 (1 Gnosia, 1 Engineer, 3 Human)
+            let indexs = [0, 1, 2, 3, 4];
+            shuffleArray(indexs);
+            
+            gameState.players[indexs[0]].role = roles.GNOSIA;
+            gameState.players[indexs[1]].role = roles.ENGINEER;
+
+            // 如果玩家是工程師，他知道自己的身份
+            if(gameState.players[0].role === roles.ENGINEER) gameState.players[0].knownRole = roles.ENGINEER;
+            if(gameState.players[0].role === roles.GNOSIA) gameState.players[0].knownRole = roles.GNOSIA;
+
+            renderStage();
+            
+            // 3. 顯示玩家身份 (Modal)
+            const playerRole = gameState.players[0].role;
+            let roleColor = playerRole === roles.GNOSIA ? "var(--neon-red)" : "var(--neon-green)";
+            showModal("協調循環開始", `你的身份是：<span style="color:${roleColor}; font-size:1.5em;">${playerRole}</span>`);
+
+            startDay();
         }
 
-        // 2. 討論階段邏輯
-        function playTurn(action, targetName) {
-            if (action === '懷疑') {
-                addLog(`你：我覺得 ${targetName} 很可疑。`);
-                let target = players.find(p => p.name === targetName);
-                target.sus += 30; // 增加嫌疑度
+        // --- 開始新的一天 ---
+        function startDay() {
+            gameState.day++;
+            gameState.phase = phases.DISCUSSION;
+            gameState.discussionTurns = 0;
+            gameState.gnosiaKilledToday = null;
+            gameState.voteMap = {};
+            // 重置 AI 的說話權重 (魅力值)
+            gameState.players.forEach(p => p.tempCharm = p.charm + Math.random() * 20);
+
+            updateHeader();
+            renderStage();
+            
+            if (gameState.day > 1) {
+                processNightResults();
             } else {
-                addLog(`你：今天天氣真不錯呢。`);
+                addLog(`--- 第 ${gameState.day} 天 ---`, "event");
+                addLog("系統：檢測到古諾希亞污染。請全員進行協調討論。", "sys");
+                enterDiscussion();
+            }
+        }
+
+        // --- 夜晚結果處理 ---
+        function processNightResults() {
+            // 這個函數會在新的一天 header 更新後被呼叫
+            setTimeout(() => {
+                let killed = gameState.gnosiaKilledToday;
+                addLog(`--- 第 ${gameState.day} 天 朝 ---`, "event");
+                
+                if (killed) {
+                    addLog(`系統警告：警告。未發現船員 [${killed.name}]。疑似遭古諾希亞襲擊。`, "danger");
+                    // 在 UI 上顯示受攻擊狀態
+                    const card = document.getElementById(`char-${killed.id}`);
+                    card.classList.add('attacked');
+                } else {
+                    addLog("系統：昨晚未發現古諾希亞活動跡象。", "event");
+                }
+
+                if(checkWinCondition()) return;
+
+                setTimeout(() => {
+                    renderStage(); // 清除 attacked 狀態
+                    enterDiscussion();
+                }, 1500);
+
+            }, 500);
+        }
+
+        // --- 討論階段 ---
+        function enterDiscussion() {
+            gameState.phase = phases.DISCUSSION;
+            updateHeader();
+            if(gameState.discussionTurns < gameState.maxDiscussionTurns) {
+                gameState.discussionTurns++;
+                addLog(`[討論回合 ${gameState.discussionTurns}/${gameState.maxDiscussionTurns}]`, "sys");
+                setupPlayerActions();
+            } else {
+                enterVotePhase();
+            }
+        }
+
+        // --- 設置玩家行動按鈕 ---
+        function setupPlayerActions() {
+            const controls = document.getElementById('controls');
+            controls.innerHTML = '<p class="sys">> 選擇行動:</p>';
+
+            // 選項 1: 懷疑某人
+            const aliveOthers = gameState.players.filter(p => p.id !== 0 && p.alive);
+            
+            aliveOthers.forEach(target => {
+                const btn = document.createElement('button');
+                btn.innerText = `懷疑 ${target.name}`;
+                btn.onclick = () => playerAct('suspect', target);
+                controls.appendChild(btn);
+            });
+
+            // 選項 2: 閒聊 (不做事)
+            const chatBtn = document.createElement('button');
+            chatBtn.innerText = "閒聊 (觀察)";
+            chatBtn.onclick = () => playerAct('chat', null);
+            controls.appendChild(chatBtn);
+        }
+
+        // --- 玩家行動執行 ---
+        function playerAct(actionType, target) {
+            clearControls();
+            
+            // 1. 玩家發言
+            const playerCard = document.getElementById('char-0');
+            playerCard.classList.add('speaking');
+
+            if (actionType === 'suspect') {
+                addLog(`你：我覺得 ${target.name} 有點可疑。`, "player-msg");
+                // 玩家魅力影響 AI (簡化：目標嫌疑度上升，其他 AI 的魅力隨機影響)
+                target.suspicion += 20;
+            } else {
+                addLog(`你：今天船內的重力好像有點不穩？`, "player-msg");
             }
 
-            // AI 反應 (簡單模擬)
+            // 2. AI 連鎖反應
             setTimeout(() => {
-                aiRespond();
-                turnCount++;
-                if (turnCount >= 2) {
-                    document.getElementById('actions').style.display = 'none';
-                    document.getElementById('next-step').style.display = 'block';
-                }
+                playerCard.classList.remove('speaking');
+                runAIReaction(actionType, target);
             }, 800);
         }
 
-        function aiRespond() {
-            addLog("沙明：我也覺得蕾切爾怪怪的。", "ai-msg");
-            players.find(p => p.name === "蕾切爾").sus += 10;
-        }
-
-        // 3. 投票邏輯
-        function startVote() {
-            addLog("--- 開始投票 ---", "system-msg");
+        // --- AI 反應邏輯 (Gnosia靈魂所在) ---
+        function runAIReaction(playerAction, playerTarget) {
+            // 選出除了玩家以外最想說話的 AI ( tempCharm 最高)
+            let speakingAI = gameState.players
+                .filter(p => p.id !== 0 && p.alive)
+                .sort((a, b) => b.tempCharm - a.tempCharm)[0];
             
-            // 找出嫌疑度最高的人 (排除自己)
-            let target = players[1].sus > players[2].sus ? players[1] : players[2];
-            
-            addLog(`投票結果：${target.name} 被送入冷凍艙。`, "system-msg");
-            target.alive = false;
+            if (!speakingAI) { enterVotePhase(); return; }
 
-            if (target.role === "古諾希亞") {
-                addLog("勝利！你抓到了古諾希亞。", "system-msg");
-            } else {
-                addLog("失敗... 古諾希亞今晚會來找你。", "system-msg");
+            // 該 AI 降低魅力，讓其他人下次有機會說話
+            speakingAI.tempCharm -= 40;
+
+            const aiCard = document.getElementById(`char-${speakingAI.id}`);
+            aiCard.classList.add('speaking');
+
+            // --- AI 決定說什麼 ---
+            let logicRoll = Math.random() * 100;
+            let stealthRoll = Math.random() * 100;
+            let text = "";
+
+            // Gnosia AI 策略：撒謊
+            if (speakingAI.role === roles.GNOSIA) {
+                // 如果玩家懷疑的是人類，Gnosia 隨聲附和
+                if (playerAction === 'suspect' && playerTarget.role !== roles.GNOSIA) {
+                    text = `我也覺得 ${playerTarget.name} 怪怪的。`;
+                    playerTarget.suspicion += 15;
+                } else {
+                    // 否則隨機攻擊一個非 Gnosia
+                    let targets = gameState.players.filter(p => p.alive && p.role !== roles.GNOSIA);
+                    let target = targets[Math.floor(Math.random()*targets.length)];
+                    text = `我懷疑 ${target.name} 是古諾希亞。大家怎麼看？`;
+                    target.suspicion += 20;
+                }
+            } 
+            // 人類 AI 策略：根據邏輯和直覺
+            else {
+                // 邏輯高的 AI (蕾切爾) 如果發現 Gnosia 在攻擊，有機率反駁
+                if (playerAction === 'suspect' && Math.random() < speakingAI.logic / 150) {
+                     text = `嗯... 我覺得 ${playerTarget.name} 看起來還好。`;
+                     playerTarget.suspicion -= 5;
+                } else {
+                    // 隨機攻擊嫌疑度較高的人 (除了自己和玩家)
+                    let others = gameState.players.filter(p => p.id !== speakingAI.id && p.id !== 0 && p.alive);
+                    others.sort((a,b) => b.suspicion - a.suspicion);
+                    let target = others[0]; // 最可疑的人
+
+                    if (target && target.suspicion > 10) {
+                        text = `我也覺得 ${target.name} 很可疑。`;
+                        target.suspicion += 10;
+                    } else {
+                        text = `今天還是沒什麼線索啊。`;
+                    }
+                }
             }
-            document.getElementById('next-step').innerHTML = '<button onclick="location.reload()">重新開始</button>';
+
+            addLog(`${speakingAI.name}：${text}`, "ai-msg");
+
+            setTimeout(() => {
+                aiCard.classList.remove('speaking');
+                // 繼續下一輪討論或進入投票
+                if (gameState.discussionTurns < gameState.maxDiscussionTurns) {
+                     // 讓下一個 AI 發言 (簡化：每輪只有一個 AI 反應玩家)
+                     enterDiscussion(); 
+                } else {
+                     enterVotePhase();
+                }
+            }, 1000);
         }
 
-        addLog("系統：發現一名古諾希亞潛伏在船員中。", "system-msg");
-    </script>
-</body>
-</html>
+        // --- 投票階段 ---
+        function enterVotePhase() {
+            gameState.phase = phases.VOTE;
+            updateHeader();
+            clearControls();
+            addLog("--- 開始投票協調 ---", "system-msg");
+            addLog("系統：請選擇要送入冷凍艙的人員。", "sys");
+
+            const controls = document.getElementById('controls');
+            const aliveOthers = gameState.players.filter(p => p.id !== 0 && p.alive);
+            
+            aliveOthers.forEach(target => {
+                const btn = document.createElement('button');
+                btn.className = 'vote-btn';
+                btn.innerText = `投 ${target.name}`;
+                btn.onclick = () => playerVoteArray(target);
+                controls.appendChild(btn);
+            });
+        }
+
+        // --- 執行投票邏輯 ---
+        function playerVoteArray(playerTarget) {
+            clearControls();
+            addLog(`你投給了 ${playerTarget.name}。`, "player-msg");
+            
+            // 初始化票數
+            gameState.players.forEach(p => p.votesReceived = 0);
+
+            // 1. 玩家的一票
+            playerTarget.votesReceived++;
+
+            // 2. AI 投票 (簡化：投給 suspicion 最高的人)
+            gameState.players.filter(p => p.id !== 0 && p.alive).forEach(ai => {
+                // 選出除了自己以外 suspicion 最高的人
+                let others = gameState.players.filter(p => p.id !== ai.id && p.alive);
+                
+                // 演技高(stealth)的 Gnosia 能稍微降低 AI 投票給他的機率
+                others.forEach(o => {
+                    o.tempSus = o.suspicion - (o.role === roles.GNOSIA ? o.stealth/5 : 0);
+                });
+
+                others.sort((a,b) => b.tempSus - a.tempSus);
+                let target = others[0];
+                target.votesReceived++;
+                
+                // (選做) 顯示投票過程
+                // addLog(`${ai.name} 投給了 ${target.name}。`, "ai-msg");
+            });
+
+            // 3. 結算票數
+            setTimeout(() => {
+                let alivePlayers = gameState.players.filter(p => p.alive);
+                alivePlayers.sort((a,b) => b.votesReceived - a.votesReceived);
+
+                let frozenPlayer = alivePlayers[0];
+
+                addLog(`投票結果：[${frozenPlayer.name}] (${frozenPlayer.votesReceived} 票) 被選定送入冷凍艙。`, "event");
+                
+                frozenPlayer.alive = false;
+                frozenPlayer.frozen = true;
+
+                renderStage();
+
+                if (checkWinCondition()) return;
+
+                setTimeout(enterNightPhase, 1500);
+            }, 1000);
+        }
+
+        // --- 夜晚階段 ( Engineer & Gnosia ) ---
+        function enterNightPhase() {
+            gameState.phase = phases.NIGHT;
+            updateHeader();
+            addLog("--- 夜晚階段 ---", "event");
+            addLog("系統：全員進入睡眠艙。特殊身分者請行動。", "sys");
+
+            renderStage(); // 清除討論時的狀態
+
+            // 1. Gnosia 殺死一人 (除了自己)
+            const gnosia = gameState.players.find(p => p.role === roles.GNOSIA);
+            if (gnosia && gnosia.alive) {
+                let victims = gameState.players.filter(p => p.role !== roles.GNOSIA && p.alive);
+                // Gnosia 傾向於殺魅力高或邏輯高的人 (蕾切爾或希皮)
+                victims.sort((a,b) => (b.logic + b.charm) - (a.logic + a.charm));
+                
+                // 增加一點隨機性，不一定每次都殺最強的
+                if(Math.random() < 0.7) {
+                    gameState.gnosiaKilledToday = victims[0];
+                } else {
+                    gameState.gnosiaKilledToday = victims[Math.floor(Math.random()*victims.length)];
+                }
+                gameState.gnosiaKilledToday.alive = false;
+            }
+
+            // 2. Engineer 檢測
+            const engineer = gameState.players.find(p => p.role === roles.ENGINEER);
+            if (engineer && engineer.alive) {
+                if (engineer.id === 0) {
+                    // 玩家是工程師，提供選擇
+                    setupEngineerActions();
+                } else {
+                    // AI 工程師隨機檢測一人 (倾向 suspicion 高的人)
+                    let targets = gameState.players.filter(p => p.id !== engineer.id && p.alive && p.knownRole !== roles.ENGINEER);
+                    targets.sort((a,b) => b.suspicion - a.suspicion);
+                    let target = targets[0] || targets[Math.floor(Math.random()*targets.length)];
+                    // AI 工程師知道結果，但簡化原型不具體表現 AI 間的線索傳遞
+                }
+            } else {
+                // 如果沒有玩家工程師，直接跳到下一天
+                setTimeout(startDay, 2000);
+            }
+        }
+
+        function setupEngineerActions() {
+            clearControls();
+            addLog(">> 你是工程師。請選擇一人進行 Gnosia 檢測:", "cyan");
+            const controls = document.getElementById('controls');
+            // 檢測除了自己以外，且未確定身分的人
+            const targets = gameState.players.filter(p => p.id !== 0 && p.alive && p.knownRole === null);
+            
+            targets.forEach(target => {
+                const btn = document.createElement('button');
+                btn.style.borderColor = "var(--cyan)";
+                btn.style.color = "var(--cyan)";
+                btn.innerText = `檢測 ${target.name}`;
+                btn.onclick = () => playerEngineerAct(target);
+                controls.appendChild(btn);
+            });
+        }
+
+        function playerEngineerAct(target) {
+            clearControls();
+            addLog(`>> 正在檢測 [${target.name}]...`, "cyan");
+            
+            setTimeout(() => {
+                const isGnosia = target.role === roles.GNOSIA;
+                if(isGnosia) {
+                    addLog(`>> 警告：[${target.name}] 檢測為 [古諾希亞]。`, "danger");
+                    target.knownRole = `<span style="color:var(--neon-red);">${roles.GNOSIA}</span>`;
+                } else {
+                    addLog(`>> 結果：[${target.name}] 為人類。`, "neon-green");
+                    target.knownRole = roles.HUMAN;
+                }
+                renderStage();
+                setTimeout(startDay, 1500);
+            }, 1000);
+        }
+
+        // --- 勝負判定 ---
+        function checkWinCondition() {
+            const alivePlayers = gameState.players.filter(p => p.alive);
+            const gnosiaAlive = alivePlayers.filter(p => p.role === roles.GNOSIA).length;
+            const humanAlive = alivePlayers.length - gnosiaAlive;
+
+            if (gnosiaAlive === 0) {
+                endGame("人類勝利", "var(--neon-green)");
+                return true;
+            }
+            if (gnosiaAlive >= humanAlive) {
+                endGame("古諾希亞勝利", "var(--neon-red)");
+                return true;
+            }
+            return false;
+        }
+
+        function endGame(title, color) {
+            clearControls();
+            addLog(`=== 遊戲結束 ===`, "event");
+            addLog(title, "event");
+            gameState.phase = phases.END;
+            updateHeader();
+            
+            // 揭露所有身份
+            gameState.players.forEach(p => p.knownRole = p.role);
+            renderStage();
+
+            showModal(title, `所有的協調循環已結束。`, color);
+            
+            const controls = document.getElementById('controls');
+            controls.innerHTML = '<button onclick="location.reload()">重新開始</button>';
+        }
+
+        // --- UI 更新輔助函數 ---
+        function updateHeader() {
+            document.getElementById('day-indicator').innerText = `DAY ${gameState.day}`;
+            document.getElementById('phase-indicator').innerText = gameState.phase;
+            const aliveCount = gameState.players.filter(p => p.alive).length;
+            document.getElementById('alive-count').innerText = `Alive: ${aliveCount}`;
+        }
+
+        function renderStage() {
+            const stage = document.getElementById('stage');
+            stage.innerHTML = ''; // 清空
+
+            gameState.players.forEach(p => {
+                const card = document.createElement('div');
+                card.id = `char-${p.id}`;
+                card.className = `char-card ${p.alive ? 'alive' : 'frozen'}`;
+                
+                const name = document.createElement('div');
+                name.className = 'char-name';
+                name.innerText = p.name;
+                
+                const roleMarker = document.createElement('div');
+                roleMarker.className = 'char-role-marker';
+                if(p.knownRole) {
+                    roleMarker.innerHTML = `[${p.knownRole}]`;
+                    roleMarker.classList.add('visible');
+                    if(p.knownRole === roles.GNOSIA || p.knownRole.includes('古諾希亞')) roleMarker.style.color = "var(--neon-red)";
+                }
+
+                const susBar = document.createElement('div');
+                susBar.style.width = `${Math.min(p.suspicion, 100)}px`;
+                susBar.style.height = "2px";
+                susBar.style.background = "var(--g-light)";
+                susBar.style.marginTop = "5px";
+
+                card.appendChild(name);
+                card.
