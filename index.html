@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>GNOSIA 網頁實驗版</title>
+    <style>
+        body { background: #1a1a2e; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #game-container { width: 400px; border: 2px solid #4e4e6a; padding: 20px; margin-top: 50px; background: #16213e; border-radius: 10px; }
+        #log { height: 200px; overflow-y: auto; border: 1px solid #0f3460; padding: 10px; margin-bottom: 20px; background: #0f3460; font-size: 14px; line-height: 1.5; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        button { padding: 8px 15px; cursor: pointer; background: #e94560; border: none; color: white; border-radius: 5px; }
+        button:disabled { background: #555; }
+        .system-msg { color: #f9ed69; }
+        .ai-msg { color: #00d2d3; }
+    </style>
+</head>
+<body>
+
+    <h2>GNOSIA: 簡易模擬器</h2>
+    
+    <div id="game-container">
+        <div id="status">第 1 天 - 剩餘人數: 3</div>
+        <div id="log"></div>
+        
+        <div id="actions" class="btn-group">
+            <p>你的行動：</p>
+            <button onclick="playTurn('懷疑', '沙明')">懷疑 沙明</button>
+            <button onclick="playTurn('懷疑', '蕾切爾')">懷疑 蕾切爾</button>
+            <button onclick="playTurn('閒聊', '')">隨便閒聊</button>
+        </div>
+        
+        <div id="next-step" style="display:none; margin-top:20px;">
+            <button onclick="startVote()">前往投票</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. 初始化資料
+        let players = [
+            { name: "你", role: "人類", alive: true, sus: 0 },
+            { name: "沙明", role: "古諾希亞", alive: true, sus: 0 },
+            { name: "蕾切爾", role: "人類", alive: true, sus: 0 }
+        ];
+        let turnCount = 0;
+
+        const logDiv = document.getElementById('log');
+
+        function addLog(msg, type) {
+            const p = document.createElement('p');
+            if(type) p.className = type;
+            p.innerText = msg;
+            logDiv.appendChild(p);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // 2. 討論階段邏輯
+        function playTurn(action, targetName) {
+            if (action === '懷疑') {
+                addLog(`你：我覺得 ${targetName} 很可疑。`);
+                let target = players.find(p => p.name === targetName);
+                target.sus += 30; // 增加嫌疑度
+            } else {
+                addLog(`你：今天天氣真不錯呢。`);
+            }
+
+            // AI 反應 (簡單模擬)
+            setTimeout(() => {
+                aiRespond();
+                turnCount++;
+                if (turnCount >= 2) {
+                    document.getElementById('actions').style.display = 'none';
+                    document.getElementById('next-step').style.display = 'block';
+                }
+            }, 800);
+        }
+
+        function aiRespond() {
+            addLog("沙明：我也覺得蕾切爾怪怪的。", "ai-msg");
+            players.find(p => p.name === "蕾切爾").sus += 10;
+        }
+
+        // 3. 投票邏輯
+        function startVote() {
+            addLog("--- 開始投票 ---", "system-msg");
+            
+            // 找出嫌疑度最高的人 (排除自己)
+            let target = players[1].sus > players[2].sus ? players[1] : players[2];
+            
+            addLog(`投票結果：${target.name} 被送入冷凍艙。`, "system-msg");
+            target.alive = false;
+
+            if (target.role === "古諾希亞") {
+                addLog("勝利！你抓到了古諾希亞。", "system-msg");
+            } else {
+                addLog("失敗... 古諾希亞今晚會來找你。", "system-msg");
+            }
+            document.getElementById('next-step').innerHTML = '<button onclick="location.reload()">重新開始</button>';
+        }
+
+        addLog("系統：發現一名古諾希亞潛伏在船員中。", "system-msg");
+    </script>
+</body>
+</html>
